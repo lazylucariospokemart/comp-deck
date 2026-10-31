@@ -1,0 +1,15 @@
+{
+  "name": "Comp Deck",
+  "short_name": "Comp Deck",
+  "description": "One Piece TCG card reader and price comps for card shows",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#1c1a17",
+  "theme_color": "#c8321f",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

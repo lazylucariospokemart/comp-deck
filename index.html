@@ -1,0 +1,466 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Comp Deck</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#c8321f">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;800&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+/* Layout: one-screen tablet tool. Left = live camera + scan, right = card + prices + offer. Log below. Stacks on phones. */
+:root{
+  --bg:#f3efe6; --panel:#fffdf8; --ink:#1c1a17; --muted:#6b655b; --line:#d9d2c3;
+  --accent:#c8321f; --accent-ink:#ffffff; --gold:#e3b23c; --ok:#2f8f5b; --warn:#b7791f; --hl:#fff4cf;
+  --display:"Barlow Condensed","Arial Narrow",Impact,sans-serif;
+  --body:"Barlow","Helvetica Neue",Arial,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){ :root{
+  --bg:#16171b; --panel:#1f2127; --ink:#f1ece1; --muted:#a39d91; --line:#33363e;
+  --accent:#e04a35; --accent-ink:#ffffff; --gold:#e8bc4e; --ok:#52b57e; --warn:#d9a03f; --hl:#3a3320; color-scheme:dark } }
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.4;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-top:max(12px,env(safe-area-inset-top,0px));padding-bottom:max(12px,env(safe-area-inset-bottom,0px))}
+h1,h2,h3{margin:0;font-family:var(--display);text-wrap:balance;letter-spacing:.01em}
+button{font:inherit;color:inherit;cursor:pointer;touch-action:manipulation}
+button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+input,select{font:inherit;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 12px;min-width:0;width:100%}
+a{color:inherit}
+[hidden]{display:none!important}
+
+.top{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:12px}
+.top h1{font-size:34px;font-weight:800;text-transform:uppercase}
+.top .tag{font-family:var(--mono);font-size:12px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.top .spacer{flex:1}
+.stat{font-family:var(--mono);font-size:14px;color:var(--muted)}
+.stat b{color:var(--ink);font-size:18px}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--muted);margin-right:6px;vertical-align:middle}
+.dot.ok{background:var(--ok)} .dot.bad{background:var(--accent)}
+
+.grid{display:grid;grid-template-columns:minmax(280px,440px) minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:760px){.grid{grid-template-columns:1fr}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;min-width:0}
+.panel h2{font-size:22px;font-weight:800;text-transform:uppercase;margin-bottom:10px}
+
+.drop{position:relative;border:2px dashed var(--line);border-radius:12px;aspect-ratio:63/88;max-width:100%;max-height:56vh;margin:0 auto;
+  display:flex;align-items:center;justify-content:center;overflow:hidden;background:
+  repeating-linear-gradient(135deg,transparent 0 14px,color-mix(in srgb,var(--line) 40%,transparent) 14px 15px)}
+.drop.has img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+.drop video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000}
+.drop.live{border-style:solid;border-color:var(--gold)}
+.guide{position:absolute;inset:6% 12%;border:3px solid var(--gold);border-radius:10px;box-shadow:0 0 0 999px rgba(0,0,0,.35);pointer-events:none}
+.guide::after{content:"fit the card in the box";position:absolute;left:50%;bottom:-28px;transform:translateX(-50%);font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#fff;text-shadow:0 1px 3px #000;white-space:nowrap}
+.drop .hint{text-align:center;color:var(--muted);padding:20px;font-size:15px}
+.drop .hint b{display:block;font-family:var(--display);font-size:24px;color:var(--ink);text-transform:uppercase}
+.drop.busy::after{content:"";position:absolute;left:0;right:0;height:3px;background:var(--gold);animation:scan 1.3s linear infinite;box-shadow:0 0 14px var(--gold);z-index:3}
+@keyframes scan{from{top:0}to{top:100%}}
+.drop.flash::before{content:"";position:absolute;inset:0;background:#fff;z-index:2;animation:flash .3s ease-out forwards}
+@keyframes flash{from{opacity:.9}to{opacity:0}}
+@media (prefers-reduced-motion:reduce){.drop.busy::after,.drop.flash::before{animation:none}}
+
+.btns{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.big{grid-column:1/-1;background:var(--accent);color:var(--accent-ink);border:0;border-radius:12px;padding:18px;font-family:var(--display);font-size:26px;font-weight:800;text-transform:uppercase;letter-spacing:.03em}
+.big:disabled{opacity:.55;cursor:default}
+.ghost{background:transparent;border:1px solid var(--line);border-radius:10px;padding:12px;font-weight:600}
+.ghost:disabled{opacity:.5;cursor:default}
+.status{min-height:22px;margin-top:10px;font-size:14px;color:var(--muted)}
+.status.err{color:var(--accent)}
+.hidden-input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+
+.result{display:grid;gap:12px}
+.id-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.cardid{font-family:var(--mono);font-size:30px;font-weight:700;letter-spacing:.02em;width:auto;flex:1 1 180px;text-transform:uppercase}
+.conf{font-family:var(--mono);font-size:12px;padding:5px 9px;border-radius:999px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.conf.hi{border-color:var(--ok);color:var(--ok)} .conf.lo{border-color:var(--warn);color:var(--warn)}
+.fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+label.f{display:grid;gap:4px;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-weight:600}
+label.f input,label.f select{font-size:16px;text-transform:none;letter-spacing:0;font-weight:500}
+.alts{font-size:14px;color:var(--muted)}
+.alts button{background:transparent;border:1px solid var(--line);border-radius:999px;padding:5px 10px;font-family:var(--mono);font-size:13px;margin:4px 6px 0 0}
+
+/* prices */
+.prices{border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.prices .ph{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.prices .ph h3{font-size:18px;text-transform:uppercase}
+.prices .ph .spacer{flex:1}
+.prices .ph .when{font-family:var(--mono);font-size:11px;color:var(--muted)}
+.ptbl{overflow-x:auto}
+.prices table{width:100%;border-collapse:collapse;font-size:15px}
+.prices td,.prices th{padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap;text-align:left}
+.prices th{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:500}
+.prices td.num{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right;font-weight:700}
+.prices tr.match{background:var(--hl)}
+.prices tr.pick{cursor:pointer}
+.prices .pempty{padding:12px;color:var(--muted);font-size:14px}
+.cardpick{display:flex;gap:6px;flex-wrap:wrap;padding:8px 12px;border-bottom:1px solid var(--line)}
+.cardpick button{border:1px solid var(--line);background:transparent;border-radius:999px;padding:5px 10px;font-size:13px}
+.cardpick button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+
+.links{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
+.links a{display:block;text-align:center;text-decoration:none;border:1px solid var(--ink);border-radius:10px;padding:12px 10px;font-family:var(--display);font-size:19px;font-weight:800;text-transform:uppercase}
+.links a:hover{background:var(--ink);color:var(--bg)}
+.links a span{display:block;font-family:var(--body);font-size:12px;font-weight:500;text-transform:none;color:var(--muted)}
+.links a:hover span{color:var(--bg)}
+
+.money{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;align-items:end}
+@media (max-width:420px){.money{grid-template-columns:1fr 1fr}}
+.money .out{font-family:var(--mono);font-size:30px;font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums}
+.pct{display:flex;gap:6px;flex-wrap:wrap}
+.pct button{border:1px solid var(--line);background:transparent;border-radius:8px;padding:8px 12px;font-family:var(--mono);font-size:14px}
+.pct button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.save{display:flex;gap:10px;flex-wrap:wrap}
+.save .big{grid-column:auto;flex:1 1 200px;font-size:22px;padding:14px}
+
+.logwrap{margin-top:16px}
+.loghead{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin-bottom:8px}
+.loghead .spacer{flex:1}
+table.log{width:100%;border-collapse:collapse;font-size:14px}
+.tbl{overflow-x:auto}
+.log th,.log td{text-align:left;padding:9px 8px;border-bottom:1px solid var(--line);vertical-align:middle;white-space:nowrap}
+.log th{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:500}
+.log td.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.log td img{width:28px;height:39px;object-fit:cover;border-radius:3px;border:1px solid var(--line);vertical-align:middle}
+.log td .x{border:0;background:transparent;color:var(--muted);font-size:18px;padding:2px 8px}
+.log tfoot td{font-weight:600}
+.empty{color:var(--muted);padding:14px 0;font-size:15px}
+.chip{display:inline-block;font-family:var(--mono);font-size:11px;padding:2px 7px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
+.toast{position:fixed;left:50%;bottom:max(18px,env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:600;opacity:0;transition:opacity .2s;pointer-events:none;z-index:20}
+.toast.show{opacity:1}
+
+/* settings */
+dialog{border:1px solid var(--line);border-radius:14px;background:var(--panel);color:var(--ink);padding:18px;max-width:520px;width:calc(100% - 32px)}
+dialog::backdrop{background:rgba(0,0,0,.5)}
+dialog .fields{grid-template-columns:1fr}
+dialog .row{display:flex;gap:10px;justify-content:flex-end;margin-top:14px;flex-wrap:wrap}
+dialog p{font-size:14px;color:var(--muted);margin:6px 0 12px}
+</style>
+</head>
+<body>
+
+<div class="top">
+  <h1>Comp Deck</h1>
+  <span class="tag">One Piece TCG · card show comps</span>
+  <span class="spacer"></span>
+  <span class="stat">Comped <b id="statCount">0</b></span>
+  <span class="stat">Offers <b id="statOffer">$0</b></span>
+  <button class="ghost" id="setBtn" style="padding:8px 12px"><span class="dot" id="relayDot"></span>Settings</button>
+</div>
+
+<div class="grid">
+  <section class="panel" aria-label="Scan">
+    <h2>Scan</h2>
+    <div class="drop" id="drop">
+      <video id="video" playsinline muted autoplay hidden></video>
+      <div class="guide" id="guide" hidden></div>
+      <div class="hint" id="hint"><b>Point at the card</b>Tap Start Camera for a live view, or Choose Photo. Front of the card, flat, inside the box.</div>
+    </div>
+    <input class="hidden-input" type="file" id="camInput" accept="image/*" capture="environment">
+    <input class="hidden-input" type="file" id="fileInput" accept="image/*" multiple>
+    <div class="btns">
+      <button class="big" id="scanBtn">Start camera</button>
+      <button class="ghost" id="pickBtn">Choose photo</button>
+      <button class="ghost" id="flipBtn" hidden>Flip camera</button>
+      <button class="ghost" id="rescanBtn" disabled>Read again</button>
+    </div>
+    <div class="status" id="status"></div>
+  </section>
+
+  <section class="panel" aria-label="Card">
+    <h2>Card</h2>
+    <div class="result">
+      <div class="id-row">
+        <input class="cardid" id="fCode" placeholder="OP05-119" aria-label="Card number" autocapitalize="characters">
+        <button class="ghost" id="priceBtn" style="padding:10px 14px">Get prices</button>
+        <span class="conf" id="conf">no scan yet</span>
+      </div>
+      <div class="fields">
+        <label class="f">Name<input id="fName" placeholder="Monkey.D.Luffy"></label>
+        <label class="f">Set<input id="fSet" placeholder="Awakening of the New Era"></label>
+        <label class="f">Rarity<select id="fRarity">
+          <option value="">—</option><option>C</option><option>UC</option><option>R</option><option>SR</option><option>SEC</option><option>L</option><option>SP</option><option>DON!!</option><option>P</option></select></label>
+        <label class="f">Finish<select id="fFinish">
+          <option value="">—</option><option>Standard</option><option>Parallel / Alt Art</option><option>Manga Art</option><option>SP Card</option><option>Treasure Rare</option><option>Promo</option></select></label>
+        <label class="f">Language<select id="fLang"><option>English</option><option>Japanese</option><option>Chinese</option><option>Other</option></select></label>
+        <label class="f">Condition<select id="fCond"><option>NM</option><option>LP</option><option>MP</option><option>HP</option><option>DMG</option></select></label>
+      </div>
+      <div class="alts" id="alts" hidden></div>
+
+      <div class="prices" id="prices">
+        <div class="ph"><h3>TCGplayer market</h3><span class="spacer"></span><span class="when" id="pwhen"></span></div>
+        <div class="cardpick" id="cardpick" hidden></div>
+        <div class="ptbl"><table id="ptable" hidden><thead><tr><th>Printing</th><th>Condition</th><th style="text-align:right">Market</th><th style="text-align:right">7d</th></tr></thead><tbody id="pbody"></tbody></table></div>
+        <div class="pempty" id="pempty">Scan a card or type its number, then tap Get prices.</div>
+      </div>
+
+      <div class="links">
+        <a id="lnkTcg" target="_blank" rel="noopener">TCGplayer<span>listings</span></a>
+        <a id="lnkEbay" target="_blank" rel="noopener">eBay sold<span>last sales</span></a>
+        <a id="lnkPc" target="_blank" rel="noopener">PriceCharting<span>raw + graded</span></a>
+      </div>
+
+      <div class="money">
+        <label class="f">Market $<input id="fMarket" inputmode="decimal" placeholder="0.00"></label>
+        <div>
+          <label class="f" for="pctCustom">Buy at %</label>
+          <div class="pct" id="pct">
+            <button data-p="50">50</button><button data-p="60" class="on">60</button><button data-p="70">70</button><button data-p="80">80</button>
+            <input id="pctCustom" inputmode="numeric" placeholder="%" style="width:64px;padding:8px 10px" aria-label="Custom percent">
+          </div>
+        </div>
+        <div><div class="f" style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-weight:600">Offer</div><div class="out" id="offer">$0.00</div></div>
+      </div>
+
+      <div class="save">
+        <button class="big" id="logBtn">Add to comp log</button>
+        <button class="ghost" id="clearCardBtn">Clear card</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<section class="panel logwrap" aria-label="Comp log">
+  <div class="loghead">
+    <h2>Comp log</h2>
+    <span class="tag" id="logDate"></span>
+    <span class="spacer"></span>
+    <button class="ghost" id="csvBtn">Download CSV</button>
+    <button class="ghost" id="copyBtn">Copy CSV</button>
+    <button class="ghost" id="clearLogBtn">Clear log</button>
+  </div>
+  <div class="tbl">
+    <table class="log" id="logTable" hidden>
+      <thead><tr><th></th><th>Card</th><th>Name</th><th>Finish</th><th>Cond</th><th>Market</th><th>%</th><th>Offer</th><th></th></tr></thead>
+      <tbody id="logBody"></tbody>
+      <tfoot><tr><td colspan="5">Lot total</td><td class="num" id="totMarket">$0.00</td><td></td><td class="num" id="totOffer">$0.00</td><td></td></tr></tfoot>
+    </table>
+  </div>
+  <div class="empty" id="logEmpty">Nothing comped yet. Scan a card, get its price, add it here. The log stays on this tablet.</div>
+</section>
+
+<dialog id="settings">
+  <h2>Settings</h2>
+  <p>The relay is your Cloudflare Worker. It holds your API keys so this page never does.</p>
+  <div class="fields">
+    <label class="f">Relay URL<input id="sRelay" placeholder="https://comp-deck-relay.yourname.workers.dev" inputmode="url" autocapitalize="off"></label>
+    <label class="f">PIN<input id="sPin" placeholder="the APP_PIN you set on the worker" autocapitalize="off"></label>
+    <label class="f">Default buy %<input id="sPct" inputmode="numeric" placeholder="60"></label>
+  </div>
+  <div class="status" id="sStatus"></div>
+  <div class="row">
+    <button class="ghost" id="sTest">Test connection</button>
+    <button class="big" id="sSave" style="grid-column:auto;font-size:20px;padding:12px 18px">Save</button>
+  </div>
+</dialog>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const drop=$('drop'), hint=$('hint'), status=$('status'), scanBtn=$('scanBtn'), pickBtn=$('pickBtn'), rescanBtn=$('rescanBtn');
+  const camInput=$('camInput'), fileInput=$('fileInput'), video=$('video'), guide=$('guide'), flipBtn=$('flipBtn');
+  const f = { code:$('fCode'), name:$('fName'), set:$('fSet'), rarity:$('fRarity'), finish:$('fFinish'), lang:$('fLang'), cond:$('fCond'), market:$('fMarket') };
+  const conf=$('conf'), alts=$('alts'), offerEl=$('offer'), pctWrap=$('pct'), pctCustom=$('pctCustom'), toastEl=$('toast');
+  let currentBlob=null, currentThumb=null, pct=60, log=[], queue=[], stream=null, facing='environment', camTried=false;
+  let cfg={ relay:'', pin:'' }, priceCards=[], pickIdx=0, lastQuery='';
+
+  const LS='compdeck.v2';
+  const toast=m=>{ toastEl.textContent=m; toastEl.classList.add('show'); clearTimeout(toast.t); toast.t=setTimeout(()=>toastEl.classList.remove('show'),1800); };
+  const money=n=>'$'+(Number(n)||0).toFixed(2);
+  const setStatus=(m,err)=>{ status.textContent=m||''; status.classList.toggle('err',!!err); };
+  const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+  try { const s=JSON.parse(localStorage.getItem(LS)||'{}'); if(Array.isArray(s.log)) log=s.log; if(s.pct) pct=s.pct; if(s.cfg) cfg={...cfg,...s.cfg}; } catch(e){}
+  const persist=()=>{ try{ localStorage.setItem(LS, JSON.stringify({log, pct, cfg})); }catch(e){} };
+
+  // ---- relay ----
+  const relayUrl=p=>cfg.relay.replace(/\/+$/,'')+p;
+  async function relay(path, opts={}){
+    if(!cfg.relay) throw {code:'no_relay'};
+    const r=await fetch(relayUrl(path), {...opts, headers:{...(opts.headers||{}), 'x-pin':cfg.pin||''}});
+    const data=await r.json().catch(()=>({}));
+    if(!r.ok) throw {code:data.error||('http_'+r.status), detail:data.detail||data.text||''};
+    return data;
+  }
+  const relayCopy={ no_relay:'Set the relay URL in Settings first.', bad_pin:'Wrong PIN. Check Settings.', origin_not_allowed:'The worker is not allowing this page. Check ALLOWED_ORIGINS on the worker.', no_anthropic_key:'The worker has no ANTHROPIC_API_KEY.', no_justtcg_key:'The worker has no JUSTTCG_API_KEY.', game_not_found:'JustTCG did not return a One Piece game. Set JUSTTCG_GAME on the worker.' };
+  async function checkRelay(){ const dot=$('relayDot'); dot.className='dot'; if(!cfg.relay) return; try{ const h=await relay('/health'); dot.className='dot '+(h.ok&&h.anthropic&&h.justtcg&&h.game?.id?'ok':'bad'); return h; }catch(e){ dot.className='dot bad'; return null; } }
+  checkRelay();
+
+  // ---- settings ----
+  const dlg=$('settings');
+  $('setBtn').onclick=()=>{ $('sRelay').value=cfg.relay; $('sPin').value=cfg.pin; $('sPct').value=pct; $('sStatus').textContent=''; dlg.showModal(); };
+  $('sSave').onclick=()=>{ cfg.relay=$('sRelay').value.trim(); cfg.pin=$('sPin').value.trim(); if($('sPct').value) setPct($('sPct').value); persist(); dlg.close(); checkRelay(); toast('Saved'); };
+  $('sTest').onclick=async()=>{ cfg.relay=$('sRelay').value.trim(); cfg.pin=$('sPin').value.trim(); const s=$('sStatus'); s.textContent='Testing…'; s.classList.remove('err');
+    try{ const h=await relay('/health'); const probs=[]; if(!h.anthropic) probs.push('no Anthropic key'); if(!h.justtcg) probs.push('no JustTCG key'); if(!h.game?.id) probs.push('One Piece not found on JustTCG ('+(h.game?.available||[]).join(', ')+')');
+      s.textContent=probs.length?'Connected, but: '+probs.join('; '):`Connected. Model ${h.model}, One Piece = ${h.game.id}.`; s.classList.toggle('err',!!probs.length); }
+    catch(e){ s.textContent=relayCopy[e.code]||('Could not reach the relay ('+(e.code||'network')+'). Check the URL.'); s.classList.add('err'); } };
+  if(!cfg.relay) setTimeout(()=>{ setStatus('First time here? Tap Settings and paste your relay URL and PIN.'); },300);
+
+  // ---- wake lock ----
+  const keepAwake=async()=>{ try{ if(navigator.wakeLock) await navigator.wakeLock.request('screen'); }catch(e){} };
+  document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') keepAwake(); else if(stream) stopCamera(); });
+
+  // ---- live camera ----
+  async function startCamera(){
+    keepAwake();
+    if(!navigator.mediaDevices?.getUserMedia){ fallbackCamera('No live camera in this browser.'); return; }
+    stopCamera(); setStatus('Starting camera…');
+    try{ stream=await navigator.mediaDevices.getUserMedia({ video:{ facingMode:{ideal:facing}, width:{ideal:1920}, height:{ideal:1080} }, audio:false }); }
+    catch(e){ const why=e?.name==='NotAllowedError'?'Camera was blocked. Allow the camera for this site in the browser settings.':e?.name==='NotFoundError'?'No camera found.':'Live camera isn’t available here.'; fallbackCamera(why); return; }
+    video.srcObject=stream; video.hidden=false; guide.hidden=false; hint.hidden=true;
+    drop.classList.add('live'); drop.classList.remove('has'); drop.querySelectorAll('img').forEach(i=>i.remove());
+    try{ await video.play(); }catch(e){}
+    scanBtn.textContent='Scan card'; scanBtn.dataset.mode='live';
+    try{ const cams=(await navigator.mediaDevices.enumerateDevices()).filter(d=>d.kind==='videoinput'); flipBtn.hidden=cams.length<2; }catch(e){}
+    setStatus('Live. Fit the card in the gold box and tap Scan.');
+  }
+  function stopCamera(){ if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; } video.srcObject=null; video.hidden=true; guide.hidden=true; drop.classList.remove('live'); flipBtn.hidden=true; if(scanBtn.dataset.mode==='live'){ scanBtn.dataset.mode=''; scanBtn.textContent=camTried?'Take photo':'Start camera'; } }
+  function fallbackCamera(why){ camTried=true; stopCamera(); scanBtn.dataset.mode='file'; scanBtn.textContent='Take photo'; setStatus(why+' Take Photo uses the camera app instead.', true); }
+  function grabFrame(){
+    const vw=video.videoWidth, vh=video.videoHeight; if(!vw) return null;
+    const r=drop.getBoundingClientRect(); const scale=Math.max(r.width/vw, r.height/vh);
+    const dw=vw*scale, dh=vh*scale, ox=(dw-r.width)/2, oy=(dh-r.height)/2;
+    const gx=(r.width*0.12+ox)/scale, gy=(r.height*0.06+oy)/scale, gw=(r.width*0.76)/scale, gh=(r.height*0.88)/scale;
+    const c=document.createElement('canvas'); c.width=Math.round(gw); c.height=Math.round(gh);
+    c.getContext('2d').drawImage(video,gx,gy,gw,gh,0,0,c.width,c.height);
+    return new Promise(res=>c.toBlob(b=>res(b),'image/jpeg',.92));
+  }
+  async function scanLive(){
+    const blob=await grabFrame(); if(!blob){ setStatus('Camera isn’t ready yet.',true); return; }
+    drop.classList.remove('flash'); void drop.offsetWidth; drop.classList.add('flash');
+    currentBlob=new File([blob],'scan.jpg',{type:'image/jpeg'}); currentThumb=await thumb(currentBlob).catch(()=>null);
+    rescanBtn.disabled=false; clearCard(false); identify(currentBlob);
+  }
+  flipBtn.onclick=()=>{ facing=facing==='environment'?'user':'environment'; startCamera(); };
+
+  // ---- capture ----
+  scanBtn.onclick=()=>{ const m=scanBtn.dataset.mode; if(m==='live'&&stream) scanLive(); else if(m==='file'||camTried){ keepAwake(); camInput.value=''; camInput.click(); } else startCamera(); };
+  pickBtn.onclick=()=>{ keepAwake(); fileInput.value=''; fileInput.click(); };
+  camInput.onchange=()=>{ if(camInput.files[0]) take([camInput.files[0]]); };
+  fileInput.onchange=()=>{ if(fileInput.files.length) take([...fileInput.files]); };
+  ['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.style.borderColor='var(--gold)';}));
+  ['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.style.borderColor='';}));
+  drop.addEventListener('drop',e=>{ const fs=[...(e.dataTransfer?.files||[])].filter(x=>x.type.startsWith('image/')); if(fs.length) take(fs); });
+  document.addEventListener('paste',e=>{ const fs=[...(e.clipboardData?.files||[])].filter(x=>x.type.startsWith('image/')); if(fs.length) take(fs); });
+  rescanBtn.onclick=()=>{ if(currentBlob) identify(currentBlob); };
+  function take(files){ queue=files.slice(1); showAndRead(files[0]); }
+  function nextInQueue(){ if(queue.length){ const n=queue.shift(); toast(`${queue.length+1} more queued`); showAndRead(n);} }
+  async function showAndRead(file){
+    currentBlob=file; currentThumb=await thumb(file).catch(()=>null);
+    stopCamera(); drop.classList.add('has'); drop.querySelectorAll('img').forEach(i=>i.remove());
+    const img=document.createElement('img'); img.alt='Card photo'; img.src=URL.createObjectURL(file); drop.appendChild(img);
+    hint.hidden=true; rescanBtn.disabled=false; clearCard(false); identify(file);
+  }
+  function thumb(file){ return new Promise((res,rej)=>{ const img=new Image(); img.onload=()=>{ const c=document.createElement('canvas'); const s=120/Math.max(img.width,img.height); c.width=Math.round(img.width*s); c.height=Math.round(img.height*s); c.getContext('2d').drawImage(img,0,0,c.width,c.height); URL.revokeObjectURL(img.src); res(c.toDataURL('image/jpeg',.7)); }; img.onerror=rej; img.src=URL.createObjectURL(file); }); }
+  // downscale for upload: ~1400px long side keeps the card number readable and the request small
+  function toB64(file){ return new Promise((res,rej)=>{ const img=new Image(); img.onload=()=>{ const s=Math.min(1,1400/Math.max(img.width,img.height)); const c=document.createElement('canvas'); c.width=Math.round(img.width*s); c.height=Math.round(img.height*s); c.getContext('2d').drawImage(img,0,0,c.width,c.height); URL.revokeObjectURL(img.src); res(c.toDataURL('image/jpeg',.88).split(',')[1]); }; img.onerror=rej; img.src=URL.createObjectURL(file); }); }
+
+  // ---- identify ----
+  async function identify(file){
+    if(!cfg.relay){ setStatus('Set the relay URL in Settings to read cards. You can still type the number.', true); return; }
+    drop.classList.add('busy'); scanBtn.disabled=true; rescanBtn.disabled=true; setStatus('Reading the card…'); conf.textContent='reading'; conf.className='conf';
+    try{
+      const image=await toB64(file);
+      const {card}=await relay('/identify',{ method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({image, media_type:'image/jpeg'}) });
+      fill(card||{}); setStatus(card?.notes||'Read. Fix anything wrong, then check the price.');
+      if(f.code.value) getPrices();
+    }catch(e){ setStatus(relayCopy[e.code]||('Reading failed ('+(e.code||'network')+'). Tap Read again.'), true); conf.textContent='not read'; conf.className='conf lo'; }
+    finally{ drop.classList.remove('busy'); scanBtn.disabled=false; rescanBtn.disabled=!currentBlob; nextInQueue(); }
+  }
+  function fill(r){
+    f.code.value=(r.code||'').toUpperCase().trim(); f.name.value=r.name||''; f.set.value=r.set||'';
+    pick(f.rarity,r.rarity); pick(f.finish,r.finish); pick(f.lang,r.language||'English');
+    const c=Math.max(0,Math.min(100,Number(r.confidence)||0)); conf.textContent=c+'% sure'; conf.className='conf '+(c>=80?'hi':c>=50?'':'lo');
+    const a=(r.alternatives||[]).filter(x=>x&&x.code); alts.hidden=!a.length; alts.innerHTML='';
+    if(a.length){ alts.append('Could also be: '); a.forEach(x=>{ const b=document.createElement('button'); b.textContent=`${x.code}${x.finish?' · '+x.finish:''}`; b.onclick=()=>{ f.code.value=String(x.code).toUpperCase(); if(x.finish) pick(f.finish,x.finish); links(); getPrices(); }; alts.append(b); }); }
+    links();
+  }
+  function pick(sel,val){ if(!val){sel.selectedIndex=0;return;} const v=String(val).toLowerCase(); const o=[...sel.options].find(o=>o.value.toLowerCase()===v||o.value.toLowerCase().startsWith(v.split(' ')[0])); sel.value=o?o.value:sel.options[0].value; }
+
+  // ---- prices ----
+  $('priceBtn').onclick=()=>getPrices(true);
+  async function getPrices(force){
+    const code=f.code.value.trim(); if(!code){ toast('Type the card number first'); return; }
+    if(!cfg.relay){ $('pempty').textContent='Set the relay URL in Settings to get prices.'; return; }
+    if(code===lastQuery&&!force) return; lastQuery=code;
+    $('pempty').hidden=false; $('pempty').textContent='Looking up '+code+'…'; $('ptable').hidden=true; $('cardpick').hidden=true;
+    try{ const d=await relay('/price?q='+encodeURIComponent(code)); priceCards=d.cards||[]; pickIdx=bestCard(priceCards); renderPrices(); }
+    catch(e){ $('pempty').textContent=relayCopy[e.code]||('Price lookup failed ('+(e.code||'network')+').'); }
+  }
+  function bestCard(cards){ const code=f.code.value.trim().toUpperCase(); let i=cards.findIndex(c=>String(c.number||'').toUpperCase()===code); if(i<0) i=cards.findIndex(c=>String(c.number||'').toUpperCase().includes(code)); return Math.max(0,i); }
+  function finishMatch(printing){ const fin=f.finish.value, p=String(printing||'').toLowerCase(); if(!fin) return true;
+    if(fin==='Standard') return !/(parallel|alt|manga|sp|treasure)/.test(p); if(fin.startsWith('Parallel')) return /(parallel|alt)/.test(p); if(fin.startsWith('Manga')) return /manga/.test(p); if(fin.startsWith('SP')) return /\bsp\b/.test(p); if(fin.startsWith('Treasure')) return /treasure/.test(p); return true; }
+  const condKey={NM:'near mint',LP:'lightly played',MP:'moderately played',HP:'heavily played',DMG:'damaged'};
+  function renderPrices(){
+    const pk=$('cardpick'), tb=$('pbody'); pk.innerHTML=''; tb.innerHTML='';
+    if(!priceCards.length){ $('pempty').hidden=false; $('pempty').textContent='No TCGplayer match for '+lastQuery+'. Check the number, or use the links below.'; return; }
+    $('pempty').hidden=true;
+    if(priceCards.length>1){ pk.hidden=false; priceCards.forEach((c,i)=>{ const b=document.createElement('button'); b.textContent=`${c.number||''} ${c.name||''}`.trim(); b.classList.toggle('on',i===pickIdx); b.onclick=()=>{ pickIdx=i; renderPrices(); }; pk.appendChild(b); }); } else pk.hidden=true;
+    const c=priceCards[pickIdx]; const vs=(c.variants||[]).filter(v=>v.price!=null).sort((a,b)=>String(a.printing).localeCompare(String(b.printing))||condOrder(a.condition)-condOrder(b.condition));
+    let best=null; const want=condKey[f.cond.value]||'near mint';
+    vs.forEach(v=>{ const tr=document.createElement('tr'); const isMatch=finishMatch(v.printing)&&String(v.condition||'').toLowerCase()===want; if(isMatch&&!best) best=v;
+      tr.className='pick'+(isMatch?' match':''); const ch=v.change7d==null?'':(v.change7d>=0?'+':'')+Number(v.change7d).toFixed(1)+'%';
+      tr.innerHTML=`<td>${esc(v.printing||'—')}</td><td>${esc(v.condition||'—')}</td><td class="num">${money(v.price)}</td><td class="num" style="font-weight:500;color:var(--muted)">${ch}</td>`;
+      tr.onclick=()=>{ f.market.value=Number(v.price).toFixed(2); calc(); toast('Market set from '+(v.printing||'')+' '+(v.condition||'')); }; tb.appendChild(tr); });
+    $('ptable').hidden=!vs.length; if(!vs.length){ $('pempty').hidden=false; $('pempty').textContent='Found the card but no prices yet.'; }
+    const when=vs.map(v=>v.lastUpdated).filter(Boolean).sort().pop(); $('pwhen').textContent=when?'updated '+new Date(when*1000).toLocaleDateString():'';
+    if(best){ f.market.value=Number(best.price).toFixed(2); calc(); }
+    if(!f.name.value&&c.name) f.name.value=c.name; if(!f.set.value&&c.set) f.set.value=c.set; links();
+  }
+  function condOrder(c){ return ['near mint','lightly played','moderately played','heavily played','damaged'].indexOf(String(c||'').toLowerCase()); }
+  f.cond.addEventListener('change',()=>{ if(priceCards.length) renderPrices(); });
+  f.finish.addEventListener('change',()=>{ links(); if(priceCards.length) renderPrices(); });
+  f.code.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); getPrices(true); } });
+
+  // ---- outside links ----
+  function q(){ const code=f.code.value.trim(); const fin=f.finish.value; const alt=/Parallel|Manga|SP|Treasure/.test(fin)?(fin.startsWith('Manga')?' manga':' alternate art'):''; return {code,alt}; }
+  function links(){ const {code,alt}=q(); const base=code||f.name.value.trim(); const e=encodeURIComponent;
+    $('lnkTcg').href=`https://www.tcgplayer.com/search/one-piece-card-game/product?productLineName=one-piece-card-game&q=${e(base)}&view=grid`;
+    $('lnkEbay').href=`https://www.ebay.com/sch/i.html?_nkw=${e(base+' one piece'+alt)}&LH_Sold=1&LH_Complete=1&_sop=13`;
+    $('lnkPc').href=`https://www.pricecharting.com/search-products?type=prices&q=${e(base+' one piece'+alt)}`; }
+  f.code.addEventListener('input',()=>{ f.code.value=f.code.value.toUpperCase(); links(); }); f.name.addEventListener('input',links); links();
+
+  // ---- offer math ----
+  function setPct(p){ pct=Math.max(1,Math.min(100,Number(p)||60)); [...pctWrap.querySelectorAll('button')].forEach(b=>b.classList.toggle('on',Number(b.dataset.p)===pct)); pctCustom.value=[50,60,70,80].includes(pct)?'':pct; calc(); persist(); }
+  pctWrap.addEventListener('click',e=>{ const b=e.target.closest('button[data-p]'); if(b) setPct(b.dataset.p); });
+  pctCustom.addEventListener('input',()=>{ if(pctCustom.value) setPct(pctCustom.value); });
+  f.market.addEventListener('input',calc);
+  const mkt=()=>Number(String(f.market.value).replace(/[^0-9.]/g,''))||0;
+  function calc(){ offerEl.textContent=money(mkt()*pct/100); }
+  setPct(pct);
+
+  // ---- log ----
+  $('logBtn').onclick=()=>{ const code=f.code.value.trim(); if(!code&&!f.name.value.trim()){ toast('Need a card number or name first'); f.code.focus(); return; }
+    log.unshift({ t:Date.now(), code, name:f.name.value.trim(), set:f.set.value.trim(), rarity:f.rarity.value, finish:f.finish.value, lang:f.lang.value, cond:f.cond.value, market:mkt(), pct, offer:+(mkt()*pct/100).toFixed(2), thumb:currentThumb });
+    persist(); render(); toast('Added to log'); clearCard(true); };
+  $('clearCardBtn').onclick=()=>clearCard(true);
+  function clearCard(resetPhoto){
+    Object.values(f).forEach(el=>{ if(el.tagName==='SELECT') el.selectedIndex=0; else el.value=''; }); f.lang.value='English'; f.cond.value='NM';
+    conf.textContent='no scan yet'; conf.className='conf'; alts.hidden=true; alts.innerHTML=''; calc(); links();
+    priceCards=[]; lastQuery=''; $('pbody').innerHTML=''; $('ptable').hidden=true; $('cardpick').hidden=true; $('pwhen').textContent=''; $('pempty').hidden=false; $('pempty').textContent='Scan a card or type its number, then tap Get prices.';
+    if(resetPhoto){ currentBlob=null; currentThumb=null; drop.classList.remove('has'); drop.querySelectorAll('img').forEach(i=>i.remove()); rescanBtn.disabled=true; if(!stream){ hint.hidden=false; setStatus(''); } }
+  }
+  function render(){ const tb=$('logBody'); tb.innerHTML=''; $('logTable').hidden=!log.length; $('logEmpty').hidden=!!log.length; let tm=0,to=0;
+    log.forEach((r,i)=>{ tm+=r.market; to+=r.offer; const tr=document.createElement('tr');
+      tr.innerHTML=`<td>${r.thumb?`<img src="${r.thumb}" alt="">`:''}</td><td class="num">${esc(r.code)||'—'}</td><td>${esc(r.name)}${r.rarity?` <span class="chip">${esc(r.rarity)}</span>`:''}</td><td>${esc(r.finish)||'—'}</td><td>${esc(r.cond)}</td><td class="num">${money(r.market)}</td><td class="num">${r.pct}%</td><td class="num">${money(r.offer)}</td><td><button class="x" aria-label="Remove" data-i="${i}">×</button></td>`;
+      tb.appendChild(tr); });
+    $('totMarket').textContent=money(tm); $('totOffer').textContent=money(to); $('statCount').textContent=log.length; $('statOffer').textContent=money(to).replace(/\.00$/,'');
+    $('logDate').textContent=new Date().toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'}); }
+  $('logBody').addEventListener('click',e=>{ const b=e.target.closest('button[data-i]'); if(!b) return; log.splice(Number(b.dataset.i),1); persist(); render(); });
+  $('clearLogBtn').onclick=()=>{ const b=$('clearLogBtn'); if(!log.length) return; if(b.dataset.armed){ log=[]; persist(); render(); delete b.dataset.armed; b.textContent='Clear log'; } else { b.dataset.armed='1'; b.textContent='Tap again to clear'; setTimeout(()=>{ delete b.dataset.armed; b.textContent='Clear log'; },3000); } };
+  function csv(){ const cols=['time','code','name','set','rarity','finish','language','condition','market','buy_pct','offer']; const qq=v=>'"'+String(v??'').replace(/"/g,'""')+'"';
+    return [cols.join(',')].concat(log.map(r=>[new Date(r.t).toISOString(),r.code,r.name,r.set,r.rarity,r.finish,r.lang,r.cond,r.market.toFixed(2),r.pct,r.offer.toFixed(2)].map(qq).join(','))).join('\n'); }
+  $('copyBtn').onclick=async()=>{ if(!log.length){toast('Log is empty');return;} try{ await navigator.clipboard.writeText(csv()); toast('CSV copied'); }catch(e){ toast('Copy blocked'); } };
+  $('csvBtn').onclick=()=>{ if(!log.length){toast('Log is empty');return;} const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv()],{type:'text/csv'})); a.download=`comps-${new Date().toISOString().slice(0,10)}.csv`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000); };
+
+  render(); calc();
+})();
+</script>
+</body>
+</html>
