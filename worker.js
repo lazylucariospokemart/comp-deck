@@ -80,7 +80,7 @@ export default {
         const text = (data.content || []).map(c => c.text || '').join('');
         const m = text.match(/\{[\s\S]*\}/);
         let card = null; try { card = JSON.parse(m ? m[0] : text); } catch (e) {}
-        if (!card) { console.error('unparseable', text.slice(0, 800)); return json({ error: 'unparseable', detail: text.slice(0, 300) }, 502); }
+        if (!card) { console.error('unparseable', JSON.stringify({ stop: data.stop_reason, content: data.content, usage: data.usage, img: b64.length, strip: strip.length, ua: req.headers.get('user-agent') }).slice(0, 1500)); return json({ error: 'unparseable', detail: (data.stop_reason ? 'stop=' + data.stop_reason + ' ' : '') + text.slice(0, 300) }, 502); }
         return json({ card });
       }
       if (url.pathname === '/price' && req.method === 'GET') {
