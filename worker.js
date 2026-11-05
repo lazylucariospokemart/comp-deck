@@ -75,12 +75,12 @@ export default {
             messages: [{ role: 'user', content }],
           }),
         });
-        const data = await r.json();
-        if (!r.ok) return json({ error: 'anthropic', detail: data }, 502);
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) { console.error('anthropic', r.status, JSON.stringify(data).slice(0, 800), 'img', b64.length, 'strip', strip.length); return json({ error: 'anthropic', detail: data?.error?.message || JSON.stringify(data).slice(0, 300), status: r.status }, 502); }
         const text = (data.content || []).map(c => c.text || '').join('');
         const m = text.match(/\{[\s\S]*\}/);
         let card = null; try { card = JSON.parse(m ? m[0] : text); } catch (e) {}
-        if (!card) return json({ error: 'unparseable', text }, 502);
+        if (!card) { console.error('unparseable', text.slice(0, 800)); return json({ error: 'unparseable', detail: text.slice(0, 300) }, 502); }
         return json({ card });
       }
       if (url.pathname === '/price' && req.method === 'GET') {

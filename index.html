@@ -373,7 +373,7 @@ dialog p{font-size:14px;color:var(--muted);margin:6px 0 12px}
       const {card}=await relay('/identify',{ method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({image:full, strip, media_type:'image/jpeg'}) });
       fill(card||{}); setStatus(card?.notes||'Read. Fix anything wrong, then check the price.');
       if(f.code.value) getPrices();
-    }catch(e){ setStatus(relayCopy[e.code]||('Reading failed ('+(e.code||'network')+'). Tap Read again.'), true); conf.textContent='not read'; conf.className='conf lo'; }
+    }catch(e){ console.error('identify', e); setStatus(relayCopy[e.code]||('Reading failed ('+(e.code||'network')+(e.detail?': '+String(e.detail).slice(0,160):'')+'). Tap Read again.'), true); conf.textContent='not read'; conf.className='conf lo'; }
     finally{ drop.classList.remove('busy'); scanBtn.disabled=false; rescanBtn.disabled=!currentBlob; nextInQueue(); }
   }
   function fill(r){
