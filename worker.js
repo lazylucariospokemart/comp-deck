@@ -71,7 +71,8 @@ export default {
           headers: { 'content-type': 'application/json', 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
           body: JSON.stringify({
             model: env.MODEL || 'claude-haiku-5-5',
-            max_tokens: 500,
+            max_tokens: 1500,
+            thinking: { type: 'disabled' },
             messages: [{ role: 'user', content }],
           }),
         });
