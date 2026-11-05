@@ -72,7 +72,7 @@ export default {
           body: JSON.stringify({
             model: env.MODEL || 'claude-haiku-5-5',
             max_tokens: 1500,
-            thinking: { type: 'disabled' },
+            thinking: { type: 'between_tools' },
             messages: [{ role: 'user', content }],
           }),
         });
