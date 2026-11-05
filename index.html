@@ -292,6 +292,14 @@ dialog p{font-size:14px;color:var(--muted);margin:6px 0 12px}
   async function checkRelay(){ const dot=$('relayDot'); dot.className='dot'; if(!cfg.relay) return; try{ const h=await relay('/health'); dot.className='dot '+(h.ok&&h.anthropic&&h.justtcg&&h.game?.id?'ok':'bad'); return h; }catch(e){ dot.className='dot bad'; return null; } }
   checkRelay();
 
+  // ---- self-update: reload when GitHub Pages has a newer index.html (never mid-scan) ----
+  (function(){
+    const KEY='compdeck.etag'; let mine=null;
+    async function tag(){ try{ const r=await fetch(location.pathname, {method:'HEAD', cache:'no-store'}); return r.headers.get('etag')||r.headers.get('last-modified')||null; }catch(e){ return null; } }
+    async function check(){ const t=await tag(); if(!t) return; if(!mine){ mine=t; return; } if(t!==mine && !drop.classList.contains('busy')){ setStatus('Updating to the newest version…'); setTimeout(()=>location.reload(), 600); } }
+    check(); document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible') check(); }); setInterval(check, 10*60*1000);
+  })();
+
   // ---- settings ----
   const dlg=$('settings');
   $('setBtn').onclick=()=>{ $('sRelay').value=cfg.relay; $('sPin').value=cfg.pin; $('sPct').value=pct; $('sStatus').textContent=''; dlg.showModal(); };
