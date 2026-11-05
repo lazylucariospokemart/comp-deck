@@ -311,7 +311,7 @@ dialog p{font-size:14px;color:var(--muted);margin:6px 0 12px}
     keepAwake();
     if(!navigator.mediaDevices?.getUserMedia){ fallbackCamera('No live camera in this browser.'); return; }
     stopCamera(); setStatus('Starting camera…');
-    try{ stream=await navigator.mediaDevices.getUserMedia({ video:{ facingMode:{ideal:facing}, width:{ideal:1920}, height:{ideal:1080} }, audio:false }); }
+    try{ stream=await navigator.mediaDevices.getUserMedia({ video:{ facingMode:{ideal:facing}, width:{ideal:3840}, height:{ideal:2160}, advanced:[{focusMode:'continuous'}] }, audio:false }); }
     catch(e){ const why=e?.name==='NotAllowedError'?'Camera was blocked. Allow the camera for this site in the browser settings.':e?.name==='NotFoundError'?'No camera found.':'Live camera isn’t available here.'; fallbackCamera(why); return; }
     video.srcObject=stream; video.hidden=false; guide.hidden=false; hint.hidden=true;
     drop.classList.add('live'); drop.classList.remove('has'); drop.querySelectorAll('img').forEach(i=>i.remove());
@@ -359,15 +359,18 @@ dialog p{font-size:14px;color:var(--muted);margin:6px 0 12px}
   }
   function thumb(file){ return new Promise((res,rej)=>{ const img=new Image(); img.onload=()=>{ const c=document.createElement('canvas'); const s=120/Math.max(img.width,img.height); c.width=Math.round(img.width*s); c.height=Math.round(img.height*s); c.getContext('2d').drawImage(img,0,0,c.width,c.height); URL.revokeObjectURL(img.src); res(c.toDataURL('image/jpeg',.7)); }; img.onerror=rej; img.src=URL.createObjectURL(file); }); }
   // downscale for upload: ~1400px long side keeps the card number readable and the request small
-  function toB64(file){ return new Promise((res,rej)=>{ const img=new Image(); img.onload=()=>{ const s=Math.min(1,1400/Math.max(img.width,img.height)); const c=document.createElement('canvas'); c.width=Math.round(img.width*s); c.height=Math.round(img.height*s); c.getContext('2d').drawImage(img,0,0,c.width,c.height); URL.revokeObjectURL(img.src); res(c.toDataURL('image/jpeg',.88).split(',')[1]); }; img.onerror=rej; img.src=URL.createObjectURL(file); }); }
+  function loadImg(file){ return new Promise((res,rej)=>{ const img=new Image(); img.onload=()=>res(img); img.onerror=rej; img.src=URL.createObjectURL(file); }); }
+  function cropB64(img,sx,sy,sw,sh,maxEdge,q){ const s=Math.min(1,maxEdge/Math.max(sw,sh)); const c=document.createElement('canvas'); c.width=Math.round(sw*s); c.height=Math.round(sh*s); c.getContext('2d').drawImage(img,sx,sy,sw,sh,0,0,c.width,c.height); return c.toDataURL('image/jpeg',q).split(',')[1]; }
+  // Two views: the whole card (for name/art/finish) and a zoomed strip of the bottom 26% (where the number + rarity are printed).
+  async function toImages(file){ const img=await loadImg(file); const W=img.width,H=img.height; const full=cropB64(img,0,0,W,H,1568,.9); const strip=cropB64(img,0,Math.round(H*0.74),W,Math.round(H*0.26),1568,.92); URL.revokeObjectURL(img.src); return {full,strip}; }
 
   // ---- identify ----
   async function identify(file){
     if(!cfg.relay){ setStatus('Set the relay URL in Settings to read cards. You can still type the number.', true); return; }
     drop.classList.add('busy'); scanBtn.disabled=true; rescanBtn.disabled=true; setStatus('Reading the card…'); conf.textContent='reading'; conf.className='conf';
     try{
-      const image=await toB64(file);
-      const {card}=await relay('/identify',{ method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({image, media_type:'image/jpeg'}) });
+      const {full,strip}=await toImages(file);
+      const {card}=await relay('/identify',{ method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({image:full, strip, media_type:'image/jpeg'}) });
       fill(card||{}); setStatus(card?.notes||'Read. Fix anything wrong, then check the price.');
       if(f.code.value) getPrices();
     }catch(e){ setStatus(relayCopy[e.code]||('Reading failed ('+(e.code||'network')+'). Tap Read again.'), true); conf.textContent='not read'; conf.className='conf lo'; }

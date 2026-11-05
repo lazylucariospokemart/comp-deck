@@ -18,10 +18,10 @@ let gameCache = null; // {id, name, at}
 
 const PROMPT = `You are reading a photo of one ONE PIECE CARD GAME (Bandai) trading card for a card-show price lookup. Read what is printed on the card itself; do not guess from art alone.
 Report:
-- code: the card number printed at the bottom (format like OP05-119, ST01-001, EB01-010, P-001, PRB01-001). Uppercase. Empty string if not readable.
+- code: the card number printed in small white text in the bottom-left corner (format like OP05-119, ST01-001, EB01-010, P-001, PRB01-001). Read it character by character from the zoomed strip; common confusions: 0/O, 1/I, 5/S, 8/B. Uppercase. Empty string if not readable.
 - name: character/event/stage name as printed.
 - set: the set/booster name if you know it from the code (e.g. OP05 = Awakening of the New Era). Empty if unsure.
-- rarity: one of C, UC, R, SR, SEC, L, SP, DON!!, P. Read the rarity letter printed near the card number.
+- rarity: one of C, UC, R, SR, SEC, L, SP, DON!!, P. Read the rarity letters printed right after the card number (e.g. "OP05-119 SEC"). Leaders are L; cards with no number are DON!!.
 - finish: "Standard", "Parallel / Alt Art" (different or full artwork from the normal print, often borderless), "Manga Art" (black-and-white manga panel style), "SP Card", "Treasure Rare", or "Promo".
 - language: English, Japanese, Chinese, or Other.
 - confidence: 0-100 that code+finish are right.
@@ -56,16 +56,23 @@ export default {
         const body = await req.json().catch(() => ({}));
         const b64 = String(body.image || '').replace(/^data:image\/\w+;base64,/, '');
         if (!b64) return json({ error: 'no_image' }, 400);
+        const strip = String(body.strip || '').replace(/^data:image\/\w+;base64,/, '');
+        const content = [
+          { type: 'text', text: 'Image 1: the whole card.' },
+          { type: 'image', source: { type: 'base64', media_type: body.media_type || 'image/jpeg', data: b64 } },
+        ];
+        if (strip) content.push(
+          { type: 'text', text: 'Image 2: a zoomed-in crop of the bottom of the same card, where the card number and rarity letter are printed. Use it to read those exactly.' },
+          { type: 'image', source: { type: 'base64', media_type: body.media_type || 'image/jpeg', data: strip } },
+        );
+        content.push({ type: 'text', text: PROMPT });
         const r = await fetch(ANTH, {
           method: 'POST',
           headers: { 'content-type': 'application/json', 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
           body: JSON.stringify({
             model: env.MODEL || 'claude-haiku-5-5',
             max_tokens: 500,
-            messages: [{ role: 'user', content: [
-              { type: 'image', source: { type: 'base64', media_type: body.media_type || 'image/jpeg', data: b64 } },
-              { type: 'text', text: PROMPT },
-            ] }],
+            messages: [{ role: 'user', content }],
           }),
         });
         const data = await r.json();
